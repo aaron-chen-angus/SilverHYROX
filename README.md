@@ -814,4 +814,5 @@ See §15 (measurement limitations) and §16 (data quality). Common issues: side-
 
 ## License
 
-MIT
+Republic Polytechnic Health Promotion Innovation Laboratory
+
