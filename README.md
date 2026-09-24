@@ -6,7 +6,7 @@ A mobile-friendly, browser-based fitness challenge for older adults and communit
 
 > **Silver HYROX is a computer-vision-assisted fitness challenge / functional-performance application. It is not a medical diagnostic device.** All outputs are automated movement counts and derived indicators; they are intended for fitness, wellness, engagement, and educational use, not clinical diagnosis.
 
-> **Quick access** — App: https://aaron-chen-angus.github.io/SilverHYROX/ · Live Results Sheet: https://docs.google.com/spreadsheets/d/1P-09DEozBacsb7OGXcxDaReKPsnWeIlWjnaUUzjlMvE/ (details in §2).
+> **Quick access** — App: https://aaron-chen-angus.github.io/SilverHYROX/ · R Shiny Dashboard: https://intellicare.shinyapps.io/SilverHyroxDashboard/ · Repository: https://github.com/aaron-chen-angus/SilverHYROX · Live Results Sheet: https://docs.google.com/spreadsheets/d/1P-09DEozBacsb7OGXcxDaReKPsnWeIlWjnaUUzjlMvE/ (details in §2).
 
 ---
 
@@ -67,6 +67,12 @@ Measurements are camera-based estimates dependent on camera angle, lighting, occ
 
 **Application URL**
 https://aaron-chen-angus.github.io/SilverHYROX/
+
+**R Shiny Analytics Dashboard**
+https://intellicare.shinyapps.io/SilverHyroxDashboard/
+
+**Source Code Repository (GitHub)**
+https://github.com/aaron-chen-angus/SilverHYROX
 
 **Live Results Dataset (Google Sheet)**
 https://docs.google.com/spreadsheets/d/1P-09DEozBacsb7OGXcxDaReKPsnWeIlWjnaUUzjlMvE/
@@ -457,6 +463,8 @@ silver_data <- read_sheet(
 
 ## 11. R Shiny Integration
 
+> **Deployed dashboard:** https://intellicare.shinyapps.io/SilverHyroxDashboard/ · **Source (`SilverHYROX_Dashboard.R`) in repo:** https://github.com/aaron-chen-angus/SilverHYROX
+
 GitHub does **not** need to be an intermediate data repository. Recommended pipeline:
 
 ```
@@ -814,5 +822,4 @@ See §15 (measurement limitations) and §16 (data quality). Common issues: side-
 
 ## License
 
-Republic Polytechnic Health Promotion Innovation Laboratory
-
+MIT

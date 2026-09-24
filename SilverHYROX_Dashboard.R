@@ -24,6 +24,13 @@ library(shinythemes)
 library(readr)
 library(tools)
 
+# `readr` (and some other packages) export their own validate()/need(), which
+# are loaded AFTER shiny above and mask shiny's versions. That makes every
+# `validate(need(...))` call fail with "unused argument (need(...))".
+# Pin these two names to shiny so they resolve correctly regardless of load order.
+validate <- shiny::validate
+need     <- shiny::need
+
 # ---- Constants --------------------------------------------------------------
 SHEET_ID  <- "1P-09DEozBacsb7OGXcxDaReKPsnWeIlWjnaUUzjlMvE"
 SHEET_CSV <- sprintf(
@@ -70,6 +77,40 @@ fmt <- function(x) {
   if (is.numeric(x)) format(round(x, 2), nsmall = 0, trim = TRUE) else as.character(x)
 }
 fmt_p <- function(p) if (is.na(p)) "NA" else if (p < 0.001) "<0.001" else formatC(p, digits = 3, format = "f")
+
+# ---- Silver HYROX plot theme ------------------------------------------------
+# Matches the app aesthetic (styles.css): dark navy panels, silver/teal text,
+# system font stack. Purely visual — does not alter any computed values.
+SH <- list(
+  navy       = "#1a1f3a", navy_light = "#252b4d",
+  silver     = "#c0c8d4", silver_light = "#e8ecf0",
+  teal       = "#00d4d4", teal_dark = "#00a8a8",
+  coral      = "#ff6b57", green = "#4cdf7c", gold = "#ffd700",
+  white      = "#ffffff", text_secondary = "#a0a8c0",
+  font       = "sans"
+)
+# Discrete palette for categorical colour/fill (app colours).
+SH_PALETTE <- c(SH$teal, SH$coral, SH$green, SH$gold, "#8a7dff", SH$silver)
+
+theme_silver <- function(base_size = 14) {
+  theme_minimal(base_size = base_size, base_family = SH$font) +
+    theme(
+      plot.background   = element_rect(fill = SH$navy_light, colour = NA),
+      panel.background  = element_rect(fill = SH$navy_light, colour = NA),
+      panel.grid.major  = element_line(colour = "#333a63"),
+      panel.grid.minor  = element_line(colour = "#2a3054"),
+      text              = element_text(colour = SH$silver_light),
+      plot.title        = element_text(colour = SH$white, face = "bold"),
+      axis.text         = element_text(colour = SH$silver),
+      axis.title        = element_text(colour = SH$silver),
+      legend.background = element_rect(fill = SH$navy_light, colour = NA),
+      legend.key        = element_rect(fill = SH$navy_light, colour = NA),
+      legend.text       = element_text(colour = SH$silver_light),
+      legend.title      = element_text(colour = SH$white)
+    )
+}
+scale_colour_silver <- function() scale_colour_manual(values = SH_PALETTE, na.value = SH$text_secondary)
+scale_fill_silver   <- function() scale_fill_manual(values = SH_PALETTE, na.value = SH$text_secondary)
 
 # ---- Data loading & cleaning ------------------------------------------------
 # All 18 fields per README §4a. String metrics arrive as text -> coerce.
@@ -131,23 +172,170 @@ load_data <- function() {
 # UI
 # =============================================================================
 ui <- fluidPage(
-  theme = shinytheme("flatly"),
+  theme = shinytheme("darkly"),
   tags$head(tags$style(HTML("
-    .hovertip{position:absolute;z-index:1000;background:rgba(255,255,255,.95);
-      border:1px solid #bbb;border-radius:4px;padding:6px 8px;font-size:12px;
-      pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.2);max-width:220px;}
-    .metric{background:#f7f9fa;border:1px solid #e3e8ea;border-radius:6px;
-      padding:10px 12px;text-align:center;}
-    .metric .num{font-size:22px;font-weight:600;color:#2c3e50;}
-    .metric .lab{font-size:12px;color:#7b8a8b;}
+    /* =========================================================================
+       Silver HYROX — Analytics Dashboard styling
+       Matches the Silver HYROX app aesthetic:
+       Palette : dark navy, navy-light, teal, coral, green, silver, gold
+       Fonts   : same system font stack as the app (styles.css)
+       ========================================================================= */
+    :root{
+      --navy:#1a1f3a; --navy-light:#252b4d; --silver:#c0c8d4; --silver-light:#e8ecf0;
+      --teal:#00d4d4; --teal-dark:#00a8a8; --coral:#ff6b57; --coral-dark:#e55040;
+      --white:#ffffff; --green:#4cdf7c; --gold:#ffd700;
+      --text-primary:#ffffff; --text-secondary:#a0a8c0;
+      --radius:16px; --radius-sm:8px;
+      --shadow:0 4px 20px rgba(0,0,0,.3); --shadow-lg:0 8px 40px rgba(0,0,0,.4);
+    }
+    html, body, .container-fluid{
+      background:var(--navy) !important;
+      color:var(--text-primary);
+      font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+    }
+    body{ line-height:1.5; }
+
+    /* ---- Headings / title ---- */
+    h1,h2,h3,h4,h5,h6{ font-weight:700; line-height:1.2; color:var(--white); }
+    .title-panel-silver{
+      display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+      padding:14px 4px 6px; margin-bottom:6px;
+      border-bottom:1px solid rgba(0,212,212,.25);
+    }
+    .title-panel-silver .brand{
+      font-size:1.9rem; font-weight:700; letter-spacing:3px; color:var(--white);
+      text-shadow:0 0 20px rgba(0,212,212,.3);
+    }
+    .title-panel-silver .brand .accent{ color:var(--teal); }
+    .title-panel-silver .sub{
+      font-size:1rem; font-weight:400; letter-spacing:1px; color:var(--silver);
+    }
+
+    /* ---- Sidebar ---- */
+    .well, .sidebarPanel, .col-sm-3 .well{
+      background:var(--navy-light) !important;
+      border:1px solid rgba(0,212,212,.2) !important;
+      border-radius:var(--radius) !important;
+      box-shadow:var(--shadow);
+      color:var(--silver-light);
+    }
+    .well strong, .control-label, label{ color:var(--silver) !important; font-weight:500; }
+    hr{ border-top:1px solid rgba(192,200,212,.2); }
+    .help-block, .shiny-input-container .help-block{ color:var(--text-secondary) !important; }
+    p{ color:var(--silver); }
+
+    /* ---- Form controls ---- */
+    .form-control, .selectize-input, input[type=text], select, textarea{
+      background:var(--navy) !important;
+      color:var(--white) !important;
+      border:1px solid rgba(192,200,212,.3) !important;
+      border-radius:var(--radius-sm) !important;
+    }
+    .form-control:focus, .selectize-input.focus{
+      border-color:var(--teal) !important;
+      box-shadow:0 0 0 2px rgba(0,212,212,.25) !important;
+    }
+    .selectize-dropdown{
+      background:var(--navy-light) !important; color:var(--white) !important;
+      border:1px solid rgba(192,200,212,.3) !important;
+    }
+    .selectize-dropdown .active{ background:var(--teal) !important; color:var(--navy) !important; }
+    .selectize-input > .item{ color:var(--white) !important; }
+
+    /* ---- Buttons ---- */
+    .btn, .btn-default{
+      background:var(--navy-light); color:var(--silver-light);
+      border:1px solid var(--silver); border-radius:var(--radius-sm);
+      font-weight:600; transition:all .2s ease;
+    }
+    .btn:hover, .btn-default:hover{ background:#2f3663; color:var(--white); }
+    .btn-primary{ background:var(--teal) !important; color:var(--navy) !important;
+      border:none !important; font-weight:700; }
+    .btn-primary:hover{ background:var(--teal-dark) !important; color:var(--navy) !important; }
+    .btn:active{ transform:scale(.97); }
+
+    /* ---- Sliders (ionRangeSlider) ---- */
+    .irs--shiny .irs-bar, .irs-bar, .irs-bar-edge{ background:var(--teal) !important; border-color:var(--teal) !important; }
+    .irs--shiny .irs-single, .irs--shiny .irs-from, .irs--shiny .irs-to,
+    .irs-single, .irs-from, .irs-to{ background:var(--teal) !important; color:var(--navy) !important; }
+    .irs--shiny .irs-handle{ border:2px solid var(--teal) !important; background:var(--white) !important; }
+    .irs--shiny .irs-line, .irs-line{ background:var(--navy) !important; border-color:var(--navy) !important; }
+    .irs--shiny .irs-min, .irs--shiny .irs-max, .irs-grid-text{ color:var(--text-secondary) !important; background:transparent !important; }
+
+    /* ---- Checkboxes / radios accent ---- */
+    input[type=checkbox], input[type=radio]{ accent-color:var(--teal); }
+
+    /* ---- Tabs ---- */
+    .nav-tabs{ border-bottom:1px solid rgba(0,212,212,.25); }
+    .nav-tabs > li > a{
+      color:var(--silver) !important; border:none !important;
+      background:transparent !important; font-weight:600;
+    }
+    .nav-tabs > li > a:hover{ color:var(--teal) !important; background:rgba(0,212,212,.08) !important; }
+    .nav-tabs > li.active > a, .nav-tabs > li.active > a:focus, .nav-tabs > li.active > a:hover{
+      color:var(--navy) !important; background:var(--teal) !important;
+      border:none !important; border-radius:var(--radius-sm) var(--radius-sm) 0 0 !important;
+    }
+
+    /* ---- Hover tooltip (dark) ---- */
+    .hovertip{position:absolute;z-index:1000;background:rgba(37,43,77,.97);
+      border:1px solid var(--teal);border-radius:var(--radius-sm);padding:6px 8px;font-size:12px;
+      color:var(--white);pointer-events:none;box-shadow:var(--shadow);max-width:220px;}
+    .hovertip b{ color:var(--teal); }
+
+    /* ---- Metric cards (Overview) ---- */
+    .metric{background:var(--navy-light);border:1px solid rgba(0,212,212,.2);
+      border-radius:var(--radius);padding:14px 12px;text-align:center;box-shadow:var(--shadow);}
+    .metric .num{font-size:24px;font-weight:900;color:var(--teal);
+      text-shadow:0 0 20px rgba(0,212,212,.3);}
+    .metric .lab{font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;}
+
+    /* ---- Tables (renderTable) ---- */
+    table.data, .table{ color:var(--silver-light); }
+    .table > thead > tr > th{ color:var(--white); border-bottom:2px solid rgba(0,212,212,.3); }
+    .table > tbody > tr > td{ border-top:1px solid rgba(192,200,212,.12); }
+    .table-striped > tbody > tr:nth-of-type(odd){ background:rgba(255,255,255,.03); }
+
+    /* ---- DataTables (DT) dark theme ---- */
+    .dataTables_wrapper{ color:var(--silver-light); }
+    table.dataTable{ color:var(--silver-light) !important; }
+    table.dataTable thead th{ color:var(--white) !important; border-bottom:1px solid rgba(0,212,212,.3) !important; }
+    table.dataTable tbody td{ border-top:1px solid rgba(192,200,212,.1) !important; }
+    table.dataTable.stripe tbody tr.odd, table.dataTable.display tbody tr.odd{ background:rgba(255,255,255,.03) !important; }
+    table.dataTable tbody tr{ background:transparent !important; }
+    table.dataTable tbody tr:hover{ background:rgba(0,212,212,.08) !important; }
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter,
+    .dataTables_wrapper .dataTables_info,
+    .dataTables_wrapper .dataTables_processing,
+    .dataTables_wrapper .dataTables_paginate{ color:var(--silver) !important; }
+    .dataTables_wrapper .dataTables_filter input,
+    .dataTables_wrapper .dataTables_length select{
+      background:var(--navy) !important; color:var(--white) !important;
+      border:1px solid rgba(192,200,212,.3) !important; border-radius:var(--radius-sm) !important; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button{ color:var(--silver) !important; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover{
+      background:var(--teal) !important; color:var(--navy) !important; border:none !important; border-radius:var(--radius-sm); }
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover{
+      background:rgba(0,212,212,.15) !important; color:var(--white) !important; border:none !important; }
+
+    /* ---- Verbatim / preformatted output ---- */
+    pre, .shiny-text-output{ background:var(--navy-light) !important; color:var(--green) !important;
+      border:1px solid rgba(192,200,212,.15) !important; border-radius:var(--radius-sm) !important; }
+
+    /* ---- Plot containers ---- */
+    .shiny-plot-output{ background:var(--navy-light); border-radius:var(--radius); box-shadow:var(--shadow); }
   "))),
-  titlePanel("Silver HYROX — Analytics Dashboard"),
+  div(class = "title-panel-silver",
+      span(class = "brand", "SILVER ", span(class = "accent", "HYROX")),
+      span(class = "sub", "Analytics Dashboard")),
 
   sidebarLayout(
     sidebarPanel(
       width = 3,
       actionButton("refresh_btn", "Refresh data now", class = "btn-primary btn-sm"),
-      div(style = "margin-top:6px;font-size:12px;color:#7b8a8b;", textOutput("status")),
+      div(style = "margin-top:6px;font-size:12px;color:#a0a8c0;", textOutput("status")),
       hr(),
       strong("Global filters"),
       uiOutput("gender_filter"),
@@ -395,16 +583,16 @@ server <- function(input, output, session) {
   output$ov_score <- renderPlot({
     d <- df_filt(); validate(need(nrow(d) > 0, ""))
     ggplot(d, aes(x = totalScore)) +
-      geom_histogram(bins = 20, fill = "#2c7fb8", colour = "white") +
+      geom_histogram(bins = 20, fill = SH$teal, colour = SH$navy_light) +
       labs(title = "Total score distribution", x = cont_label("totalScore"), y = "Count") +
-      theme_minimal(base_size = 13)
+      theme_silver(base_size = 13)
   })
   output$ov_age <- renderPlot({
     d <- df_filt(); validate(need(any(is.finite(d$age)), "No age data."))
     ggplot(d, aes(x = age)) +
-      geom_histogram(bins = 20, fill = "#41ab5d", colour = "white") +
+      geom_histogram(bins = 20, fill = SH$green, colour = SH$navy_light) +
       labs(title = "Age distribution", x = cont_label("age"), y = "Count") +
-      theme_minimal(base_size = 13)
+      theme_silver(base_size = 13)
   })
 
   output$dq_table <- renderTable({
@@ -448,11 +636,12 @@ server <- function(input, output, session) {
       geom_point(alpha = input$alpha, size = input$size)
     if (isTRUE(input$add_smooth))
       p <- p + geom_smooth(aes(group = 1), method = "lm", formula = y ~ x,
-                           se = TRUE, colour = "grey20", linetype = 2, linewidth = 0.6)
+                           se = TRUE, colour = SH$silver_light, linetype = 2, linewidth = 0.6)
     p +
+      scale_colour_silver() +
       labs(x = cont_label(input$x), y = cont_label(input$y),
            colour = cat_label(input$z), title = plot_title()) +
-      theme_minimal(base_size = 14)
+      theme_silver(base_size = 14)
   })
 
   # Minimal hover tooltip: nickname + the two plotted values only.
@@ -534,15 +723,20 @@ server <- function(input, output, session) {
     validate(need(nrow(d) > 0, "No data."))
     if (f != "None") p <- ggplot(d, aes(x = .data[[v]], fill = .data[[f]]))
     else             p <- ggplot(d, aes(x = .data[[v]]))
-    if (input$d_type == "Histogram")
-      p <- p + geom_histogram(bins = input$d_bins, position = "identity",
-                              alpha = 0.6, colour = "white")
-    else
-      p <- p + geom_density(alpha = 0.4)
+    if (input$d_type == "Histogram") {
+      if (f != "None") p <- p + geom_histogram(bins = input$d_bins, position = "identity",
+                                                alpha = 0.6, colour = SH$navy_light)
+      else             p <- p + geom_histogram(bins = input$d_bins, position = "identity",
+                                                alpha = 0.85, fill = SH$teal, colour = SH$navy_light)
+    } else {
+      if (f != "None") p <- p + geom_density(alpha = 0.4)
+      else             p <- p + geom_density(alpha = 0.4, fill = SH$teal, colour = SH$teal)
+    }
+    if (f != "None") p <- p + scale_fill_silver() + scale_colour_silver()
     p + labs(x = cont_label(v), y = if (input$d_type == "Histogram") "Count" else "Density",
              fill = if (f != "None") cat_label(f) else NULL,
              title = sprintf("%s of %s", input$d_type, cont_label(v))) +
-      theme_minimal(base_size = 14)
+      theme_silver(base_size = 14)
   })
   output$dist_plot <- renderPlot(dist_obj())
 
@@ -576,9 +770,10 @@ server <- function(input, output, session) {
     else                          p <- p + geom_violin(alpha = 0.6, trim = FALSE)
     if (isTRUE(input$g_jitter))
       p <- p + geom_jitter(width = 0.12, height = 0, alpha = 0.5, size = 1.6)
-    p + labs(x = cat_label(gx), y = cont_label(gy), fill = cat_label(gx),
-             title = sprintf("%s by %s", cont_label(gy), cat_label(gx))) +
-      theme_minimal(base_size = 14) + theme(legend.position = "none")
+    p + scale_fill_silver() +
+      labs(x = cat_label(gx), y = cont_label(gy), fill = cat_label(gx),
+           title = sprintf("%s by %s", cont_label(gy), cat_label(gx))) +
+      theme_silver(base_size = 14) + theme(legend.position = "none")
   })
   output$group_plot <- renderPlot(group_obj())
 
@@ -633,14 +828,15 @@ server <- function(input, output, session) {
   output$station_plot <- renderPlot({
     d <- station_df()
     ggplot(d, aes(x = z_sts, y = z_row, colour = .data[[input$s_colour]])) +
-      geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
-      geom_hline(yintercept = 0, colour = "grey85") +
-      geom_vline(xintercept = 0, colour = "grey85") +
-      geom_point(alpha = 0.8, size = 3) +
+      geom_abline(slope = 1, intercept = 0, linetype = 2, colour = SH$silver) +
+      geom_hline(yintercept = 0, colour = "#4a5178") +
+      geom_vline(xintercept = 0, colour = "#4a5178") +
+      geom_point(alpha = 0.85, size = 3) +
+      scale_colour_silver() +
       labs(x = "Sit-to-Stand (z-score)", y = "Seated Row (z-score)",
            colour = cat_label(input$s_colour),
            title = "Standardised station performance") +
-      theme_minimal(base_size = 14)
+      theme_silver(base_size = 14)
   })
   output$station_data <- DT::renderDataTable({
     d <- station_df()
@@ -671,15 +867,15 @@ server <- function(input, output, session) {
     lv <- input$c_vars
     long$Var1 <- factor(long$Var1, levels = lv); long$Var2 <- factor(long$Var2, levels = rev(lv))
     ggplot(long, aes(x = Var1, y = Var2, fill = r)) +
-      geom_tile(colour = "white") +
-      geom_text(aes(label = sprintf("%.2f", r)), size = 3.4) +
-      scale_fill_gradient2(low = "#d73027", mid = "white", high = "#1a9850",
+      geom_tile(colour = SH$navy) +
+      geom_text(aes(label = sprintf("%.2f", r)), size = 3.4, colour = SH$navy) +
+      scale_fill_gradient2(low = SH$coral, mid = SH$silver_light, high = SH$teal,
                            midpoint = 0, limits = c(-1, 1)) +
       scale_x_discrete(labels = function(z) vapply(z, cont_label, "")) +
       scale_y_discrete(labels = function(z) vapply(z, cont_label, "")) +
       labs(x = NULL, y = NULL, fill = paste0(input$c_method, "\n r"),
            title = sprintf("%s correlation matrix (pairwise complete)", input$c_method)) +
-      theme_minimal(base_size = 13) +
+      theme_silver(base_size = 13) +
       theme(axis.text.x = element_text(angle = 40, hjust = 1))
   })
   output$corr_data <- DT::renderDataTable({
